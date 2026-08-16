@@ -35,6 +35,10 @@ def save_txt(uid, name, source, created_at):
         f.write(f"{uid} | {name} | {source} | {created_at}\n")
 
 
+# Gunicorn/Render startup par database initialize hoga
+init_db()
+
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -54,7 +58,6 @@ def submit():
             "message": "UID aur In-Game Name dono required hain."
         }), 400
 
-    # Basic validation
     if len(uid) > 30:
         return jsonify({
             "success": False,
@@ -73,9 +76,13 @@ def submit():
 
     try:
         conn.execute(
-            "INSERT INTO users (uid, name, source, created_at) VALUES (?, ?, ?, ?)",
+            """
+            INSERT INTO users (uid, name, source, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
             (uid, name, source, now)
         )
+
         conn.commit()
 
         save_txt(uid, name, source, now)
@@ -108,11 +115,16 @@ def download():
 
 
 if __name__ == "__main__":
-    init_db()
-
     port = int(os.environ.get("PORT", 5000))
 
     app.run(
         host="0.0.0.0",
         port=port
     )
+
+
+
+
+
+
+
