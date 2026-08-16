@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Submit Game UID</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111827;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .box {
+            width: 100%;
+            max-width: 430px;
+            background: #1f2937;
+            padding: 25px;
+            border-radius: 16px;
+        }
+
+        h1 {
+            margin-top: 0;
+            text-align: center;
+        }
+
+        p {
+            color: #cbd5e1;
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin-top: 18px;
+            margin-bottom: 7px;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 13px;
+            border-radius: 9px;
+            border: 1px solid #475569;
+            font-size: 16px;
+        }
+
+        input,
+        select {
+            background: #111827;
+            color: white;
+        }
+
+        button {
+            margin-top: 22px;
+            border: 0;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:disabled {
+            opacity: .6;
+        }
+
+        #message {
+            margin-top: 18px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .success {
+            color: #4ade80;
+        }
+
+        .error {
+            color: #f87171;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+
+    <h1>🎮 Submit Your Game UID</h1>
+
+    <p>
+        Apna Game UID aur In-Game Name submit karein.
+    </p>
+
+    <form id="form">
+
+        <label for="uid">Game UID</label>
+
+        <input
+            type="text"
+            id="uid"
+            name="uid"
+            placeholder="Enter your UID"
+            maxlength="30"
+            required
+        >
+
+        <label for="name">In-Game Name</label>
+
+        <input
+            type="text"
+            id="name"
+            name="name"
+            placeholder="Enter your In-Game Name"
+            maxlength="50"
+            required
+        >
+
+        <label for="source">Where did you find this form?</label>
+
+        <select id="source" name="source">
+            <option value="">Select</option>
+            <option value="Facebook">Facebook</option>
+            <option value="Instagram">Instagram</option>
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Telegram">Telegram</option>
+            <option value="Discord">Discord</option>
+            <option value="YouTube">YouTube</option>
+            <option value="Other">Other</option>
+        </select>
+
+        <button type="submit" id="button">
+            Submit
+        </button>
+
+    </form>
+
+    <div id="message"></div>
+
+</div>
+
+
+<script>
+const form = document.getElementById("form");
+const button = document.getElementById("button");
+const message = document.getElementById("message");
+
+form.addEventListener("submit", async (e) => {
+
+    e.preventDefault();
+
+    button.disabled = true;
+    button.textContent = "Submitting...";
+
+    message.textContent = "";
+    message.className = "";
+
+    const data = {
+        uid: document.getElementById("uid").value.trim(),
+        name: document.getElementById("name").value.trim(),
+        source: document.getElementById("source").value
+    };
+
+    try {
+
+        const response = await fetch("/submit", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+
+            message.textContent = "✅ " + result.message;
+            message.className = "success";
+
+            form.reset();
+
+        } else {
+
+            message.textContent = "❌ " + result.message;
+            message.className = "error";
+
+        }
+
+    } catch (error) {
+
+        message.textContent =
+            "❌ Server se connection nahi ho paya.";
+
+        message.className = "error";
+
+    }
+
+    button.disabled = false;
+    button.textContent = "Submit";
+});
+</script>
+
+</body>
+</html>
