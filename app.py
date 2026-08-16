@@ -1,47 +1,19 @@
 from flask import Flask, request, render_template, jsonify
-import sqlite3
+from supabase import create_client, Client
 from datetime import datetime
 import os
 
 app = Flask(__name__)
 
-DB = "users.db"
-TXT = "users.txt"
+# Render Environment Variables से Supabase URL और API Key लें
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-
-def init_db():
-    conn = sqlite3.connect(DB)
-
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            uid TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            source TEXT DEFAULT '',
-            created_at TEXT NOT NULL
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
-
-def save_txt(uid, name, source, created_at):
-    new_file = not os.path.exists(TXT)
-
-    with open(TXT, "a", encoding="utf-8") as f:
-
-        if new_file:
-            f.write("UID | In-Game Name | Source | Date\n")
-            f.write("-" * 70 + "\n")
-
-        f.write(
-            f"{uid} | {name} | {source} | {created_at}\n"
-        )
-
-
-# Initialize database when Render/Gunicorn starts
-init_db()
+# Supabase Client Initialize करें
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+else:
+    print("Warning: SUPABASE_URL ya SUPABASE_KEY missing hai!")
 
 
 @app.route("/")
@@ -51,7 +23,6 @@ def home():
 
 @app.route("/submit", methods=["POST"])
 def submit():
-
     data = request.get_json(silent=True) or request.form
 
     uid = str(data.get("uid", "")).strip()
@@ -59,63 +30,40 @@ def submit():
     source = str(data.get("source", "")).strip()
 
     if not uid or not name:
-        return jsonify({
-            "success": False,
-            "message": "UID aur In-Game Name dono required hain."
-        }), 400
+        return jsonify({"success": False, "message": "UID aur In-Game Name dono required hain."}), 400
 
     if len(uid) > 30:
-        return jsonify({
-            "success": False,
-            "message": "Invalid UID."
-        }), 400
+        return jsonify({"success": False, "message": "Invalid UID."}), 400
 
     if len(name) > 50:
-        return jsonify({
-            "success": False,
-            "message": "In-Game Name bahut lamba hai."
-        }), 400
-
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    conn = sqlite3.connect(DB)
+        return jsonify({"success": False, "message": "In-Game Name bahut lamba hai."}), 400
 
     try:
+        # Supabase के 'users' टेबल में डेटा इन्सर्ट करें
+        # ध्यान दें: Supabase में 'name' नाम का कॉलम होना ज़रूरी है (जो हमने पहले बात की थी)
+        response = supabase.table("users").insert({
+            "uid": uid,
+            "name": name,
+            "source": source
+        }).execute()
 
-        conn.execute(
-            """
-            INSERT INTO users
-            (uid, name, source, created_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (uid, name, source, now)
-        )
+        # अगर Supabase से डेटा आ गया, मतलब इन्सर्ट हो गया
+        if response.data:
+            return jsonify({"success": True, "message": "Data successfully submit ho gaya."})
+        
+    except Exception as e:
+        error_msg = str(e)
+        # अगर UID पहले से है (Unique Constraint Error)
+        if "duplicate key value" in error_msg.lower() or "unique" in error_msg.lower():
+            return jsonify({"success": False, "message": "Ye UID pehle hi submit ho chuka hai."}), 409
+        
+        # कोई और एरर
+        return jsonify({"success": False, "message": f"Database error: {error_msg}"}), 500
 
-        conn.commit()
-
-        save_txt(uid, name, source, now)
-
-        return jsonify({
-            "success": True,
-            "message": "Data successfully submit ho gaya."
-        })
-
-    except sqlite3.IntegrityError:
-
-        return jsonify({
-            "success": False,
-            "message": "Ye UID pehle hi submit ho chuka hai."
-        }), 409
-
-    finally:
-        conn.close()
+    return jsonify({"success": False, "message": "Kuch galat ho gaya."}), 500
 
 
 if __name__ == "__main__":
-
     port = int(os.environ.get("PORT", 5000))
-
-    app.run(
-        host="0.0.0.0",
-        port=port
-    )
+    app.run(host="0.0.0.0", port=port)
+    
